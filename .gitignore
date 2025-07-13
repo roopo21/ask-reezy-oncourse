@@ -1,0 +1,42 @@
+# Node dependencies
+**/node_modules/
+**/dist/
+**/.expo/
+
+# macOS system files
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# dotenv environment variables
+.env
+**/.env
+
+# OS generated files
+Thumbs.db
+
+# Expo specific
+**/.expo/
+**/.expo-shared/
+
+# VSCode
+.vscode/
+
+# IDEs
+.idea/
+*.sw?
+
+# TypeScript build output (if any)
+**/build/
+**/out/
+
+# Python (if embeddings has any Python scripts)
+__pycache__/
+*.py[cod]
+
+# Misc
+*.sqlite
