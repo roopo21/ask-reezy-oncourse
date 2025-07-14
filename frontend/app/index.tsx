@@ -1,22 +1,51 @@
 
-import { View, Text, TextInput, TouchableOpacity, ScrollView } from "react-native";
+import { View, ScrollView, Image, StyleSheet, Dimensions } from "react-native";
 import ChatHeader from "../components/ChatHeader";
 import SearchTabs from "../components/SearchTabs";
 import PopularSearches from "../components/PopularSearches";
 import BottomInput from "../components/BottomInput";
+import { SafeAreaView } from "react-native-safe-area-context";
+import CustomHeader from "../components/CustomHeader";
 
-export default function HomeScreen() {
+
+const HomeScreen = () => {
+      const { width, height } = Dimensions.get('window');
   return (
-    <View className="flex-1 bg-gradient-to-b from-white to-blue-100 px-4 pt-10">
-      <ChatHeader />
-
-      <SearchTabs />
-
-      <ScrollView className="mt-4 flex-1">
-        <PopularSearches />
-      </ScrollView>
-
-      <BottomInput />
-    </View>
+    <SafeAreaView style={styles.safeArea}>
+      <Image
+        source={require('../assets/background.png')}
+        style={[styles.backgroundImage, { opacity: 0.5, width, height}]}
+      />
+      <View style={styles.container}>
+        <CustomHeader />
+        <ChatHeader />
+        <SearchTabs />
+        <ScrollView style={styles.scrollView}>
+          <PopularSearches />
+        </ScrollView>
+        <BottomInput />
+      </View>
+    </SafeAreaView>
   );
-}
+};
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 10
+  },
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    zIndex: -1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+});
+
+export default HomeScreen;
