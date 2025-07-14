@@ -1,4 +1,6 @@
 import { Pinecone } from '@pinecone-database/pinecone';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const pinecone = new Pinecone({
   apiKey: process.env.PINECONE_API_KEY!,
@@ -11,7 +13,6 @@ export const searchInPinecone = async (embedding: number[], namespace = 'default
     vector: embedding,
     topK,
     includeMetadata: true,
-    namespace,
   });
   return result.matches || [];
 };

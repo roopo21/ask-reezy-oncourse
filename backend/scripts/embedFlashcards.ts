@@ -2,7 +2,7 @@
 import { readFileSync } from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
-import { getEmbedding } from '../lib/embedding';
+import { getEmbeddingsWithRetry } from '../lib/embedding';
 import { index } from '../lib/pinecone';
 
 dotenv.config();
@@ -21,41 +21,41 @@ interface Flashcard {
 }
 
 async function uploadFlashcards() {
-    const rawData = JSON.parse(readFileSync(FLASHCARDS_PATH, 'utf8'));
-    const flashcards: Flashcard[] = rawData.flashcards;
+  const rawData = JSON.parse(readFileSync(FLASHCARDS_PATH, 'utf8'));
+  const flashcards: Flashcard[] = rawData.flashcards;
 
-    const BATCH_SIZE = 50;
+  const BATCH_SIZE = 50;
 
-    for (let i = 0; i < flashcards.length; i += BATCH_SIZE) {
-        const batch = flashcards.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < flashcards.length; i += BATCH_SIZE) {
+    const batch = flashcards.slice(i, i + BATCH_SIZE);
+    const inputs = batch.map((card) => card.front_content);
 
-        const vectors = await Promise.all(
-            batch.map(async (card) => {
-                const embedding = await getEmbedding(card.front_content);
-                return {
-                    type: 'flashcard',
-                    id: card.id,
-                    values: embedding,
-                    metadata: {
-                        subject: card.subject,
-                        topic: card.topic,
-                        back_content: card.back_content,
-                        card_type: card.card_type,
-                        card_variant: card.card_variant,
-                    },
-                };
-            })
-        );
+    try {
+      const embeddings = await getEmbeddingsWithRetry(inputs);
 
-        try {
-            await index.upsert(vectors);
-            console.log(`✅ Uploaded batch ${i}–${i + BATCH_SIZE}`);
-        } catch (err) {
-            console.error('❌ Error uploading batch:', err);
-        }
+      const vectors = batch.map((card, idx) => ({
+        id: card.id,
+        values: embeddings[idx],
+        metadata: {
+          type: 'flashcard',
+          subject: card.subject,
+          topic: card.topic,
+          back_content: card.back_content,
+          card_type: card.card_type,
+          card_variant: card.card_variant,
+          front_content: card.front_content
+        },
+      }));
+
+      await index.upsert(vectors);
+      console.log(`✅ Uploaded batch ${i}–${i + BATCH_SIZE}`);
+    } catch (err) {
+      console.error('❌ Error uploading batch:', err);
     }
+  }
 
-    console.log('🎉 All flashcards uploaded to Pinecone');
+  console.log('🎉 All flashcards uploaded to Pinecone');
 }
 
 uploadFlashcards();
+
