@@ -7,6 +7,8 @@ import BottomInput from "../components/BottomInput";
 import { SafeAreaView } from "react-native-safe-area-context";
 import CustomHeader from "../components/CustomHeader";
 
+import { router } from "expo-router";
+
 
 const HomeScreen = () => {
       const { width, height } = Dimensions.get('window');
@@ -23,7 +25,9 @@ const HomeScreen = () => {
         <ScrollView style={styles.scrollView}>
           <PopularSearches />
         </ScrollView>
-        <BottomInput />
+        <BottomInput onSubmit={(query) => {
+            router.push({ pathname: '/quiz', params: { query, mode: 'question' } });
+        }} />
       </View>
     </SafeAreaView>
   );
