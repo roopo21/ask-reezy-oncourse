@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, ScrollView, Text, ActivityIndicator, TouchableOpacity, StyleSheet, SafeAreaView, Image, Dimensions, Alert } from 'react-native';
+import { getMockedQuiz } from '../utils/api';
+import MultipleChoiceQuestion from '../components/QuestionCard';
+import FlashcardCard from '../components/FlashCard';
 import BottomInput from '../components/BottomInput';
 import { router, useLocalSearchParams } from 'expo-router';
 import QuizViewer from '../components/QuizViewer'; // extract this separately
@@ -11,10 +14,12 @@ import { io } from 'socket.io-client';
 export default function QuizScreen() {
   const { width, height } = Dimensions.get('window');
   
-  const { query, mode } = useLocalSearchParams();
+  const { query } = useLocalSearchParams();
   const [items, setItems] = useState<any[]>([]);
   const [llmResponse, setLlmResponse] = useState('');
   const [loading, setLoading] = useState(true);
+  const [mode, setMode] = useState<'question' | 'flashcard'>('question');
+
 
 useEffect(() => {
   console.warn('✅ Initiating socket connection to server');
@@ -23,83 +28,65 @@ useEffect(() => {
     transports: ['websocket'],
   });
 
-  // Reset state
   setLlmResponse('');
-  setItems([]);
   setLoading(true);
 
-  // Connection established
   socket.on('connect', () => {
     console.warn('✅ Connected to socket server');
     socket.emit('query', { query, type: mode });
   });
+
+  socket.on('json', (parsedItems) => {
+    console.warn('✅ Received structured items (MCQs or Flashcards)', parsedItems);
+      if (parsedItems?.[0]?.question) {
+    setMode('question');
+  } else if (parsedItems?.[0]?.front) {
+    setMode('flashcard');
+  } else {
+    console.warn('⚠️ Could not infer mode — defaulting to "question"');
+    setMode('question');
+  }
+    setItems(parsedItems);
+  });
+
 
   socket.on('connect_error', (err) => {
     console.warn('❌ Connection error:', err);
     setLoading(false);
   });
 
-  let responseBuffer = '';
-  let inJsonPhase = false;
-  const splitMarker = mode === 'question' ? 'MCQs:' : 'Flashcards:';
+let streamingQueue = '';
+let isStreaming = false;
 
-  socket.on('stream', (chunk) => {
-    // Clean chunk of weird chars
-    const cleanChunk = chunk.replace(/[^\x20-\x7E\s]/g, '');
+const streamCharacters = (text: string) => {
+  streamingQueue += text;
 
-    responseBuffer += cleanChunk;
+  if (isStreaming) return; // already streaming
 
-    if (inJsonPhase) return;
-
-    // Check if JSON part has started
-    if (responseBuffer.includes(splitMarker)) {
-      inJsonPhase = true;
-
-      const [chatPart] = responseBuffer.split(splitMarker);
-
-      const cleanedChat = chatPart
-        .split('\n')
-        .filter((line) => !line.trim().toLowerCase().startsWith('Answer:'))
-        .join('\n')
-        .trim();
-
-      setLlmResponse(cleanedChat);
+  isStreaming = true;
+  const streamNext = () => {
+    if (streamingQueue.length > 0) {
+      const nextChar = streamingQueue[0];
+      streamingQueue = streamingQueue.slice(1);
+      setLlmResponse((prev) => prev + nextChar);
+      setTimeout(streamNext, 12);
     } else {
-      // Stream full lines or coherent parts (not per-char)
-      const lastNewline = cleanChunk.lastIndexOf('\n');
-      const streamChunk = lastNewline !== -1
-        ? cleanChunk.slice(0, lastNewline + 1)
-        : cleanChunk;
-
-      setLlmResponse((prev) => prev + streamChunk);
+      isStreaming = false;
     }
-  });
+  };
+  streamNext();
+};
+
+socket.on('stream', (chunk) => {
+  if (typeof chunk === 'string' && chunk.trim() && chunk !== 'undefined') {
+    streamCharacters(chunk);
+  } else {
+    console.warn('❌ Ignored invalid chunk:', chunk);
+  }
+});
 
   socket.on('end', () => {
     console.warn('🎉 Stream ended');
-
-    if (inJsonPhase) {
-      const parts = responseBuffer.split(splitMarker);
-      let itemsPart = parts[1]?.trim() || '';
-
-      // Only take up to last closing bracket to avoid junk
-      const lastIndex = itemsPart.lastIndexOf(']');
-      if (lastIndex !== -1) {
-        itemsPart = itemsPart.slice(0, lastIndex + 1);
-      }
-
-      try {
-        const parsed = JSON.parse(itemsPart);
-        if (Array.isArray(parsed)) {
-          setItems(parsed);
-        } else {
-          console.warn('⚠️ Parsed items are not an array');
-        }
-      } catch (err) {
-        console.warn('⚠️ Could not parse JSON:', err, '\nRaw JSON:', itemsPart);
-      }
-    }
-
     setLoading(false);
     socket.disconnect();
   });
@@ -119,10 +106,10 @@ useEffect(() => {
 
   return (
 <SafeAreaView style={{ flex: 1 }}>
-  <Image
-    source={require('../assets/background.png')}
+            <Image
+              source={require('../assets/background.png')}
     style={[styles.backgroundImage, { opacity: 0.5, width, height }]}
-  />
+            />
 
   {/* Main content */}
   <View style={{ flex: 1 }}>
@@ -150,13 +137,14 @@ useEffect(() => {
     </ScrollView>
 
     {/* Bottom input stays fixed below */}
-    <BottomInput
-      onSubmit={(query) => {
-        router.push({ pathname: '/quiz', params: { query, mode } });
-      }}
-    />
-  </View>
-</SafeAreaView>
+      <BottomInput
+        onSubmit={(query) => {
+          router.push({ pathname: '/quiz', params: { query, mode } });
+        }}
+      />
+    </View>
+      
+    </SafeAreaView>
   );
 }
 
@@ -165,7 +153,7 @@ const styles = StyleSheet.create({
   padding: 16,
   paddingBottom: 100, // Enough space to not collide with BottomInput
 },
-userQueryBubble: {
+  userQueryBubble: {
   backgroundColor: '#3b82f6', // Blue background
   padding: 12,
   borderRadius: 16,

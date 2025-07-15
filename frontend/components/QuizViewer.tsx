@@ -9,6 +9,8 @@ type QuizViewerProps = {
 };
 
 export default function QuizViewer({ items, mode }: QuizViewerProps) {
+  console.warn(mode);
+  // mode = 'question';
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const goNext = () => {
@@ -30,7 +32,7 @@ export default function QuizViewer({ items, mode }: QuizViewerProps) {
       {/* Render either question or flashcard */}
       <View style={styles.cardContainer}>
         {mode === 'question' ? (
-          <MultipleChoiceQuestion {...currentItem} />
+<MultipleChoiceQuestion key={currentItem.question} {...currentItem} />
         ) : (
           <FlashcardCard {...currentItem} />
         )}

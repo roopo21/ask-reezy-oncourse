@@ -26,7 +26,7 @@ const HomeScreen = () => {
           <PopularSearches />
         </ScrollView>
         <BottomInput onSubmit={(query) => {
-            router.push({ pathname: '/quiz', params: { query, mode: 'question' } });
+            router.push({ pathname: '/quiz', params: { query, mode: 'flashcard' } });
         }} />
       </View>
     </SafeAreaView>
